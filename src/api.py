@@ -10,7 +10,7 @@ class Parser(ABC):
     """
 
     @abstractmethod
-    def load_vacancies(self, keyword, employer_list):
+    def load_vacancies(self, employer_list):
         pass
 
     @abstractmethod
@@ -20,24 +20,25 @@ class Parser(ABC):
 
 class HeadHunterAPI(Parser):
     """
-    Класс для работы с API HeadHunter
+    Класс для работы с API HeadHunter. Получает список вакансий и приводит их к нужному виду
     Класс Parser является родительским классом
     """
 
     def __init__(self):
         self.__url = "https://api.hh.ru/vacancies"
         self.__headers = {"User-Agent": "HH-User-Agent"}
-        self.params = {"text": "", "page": 0, "per_page": 100}
+        self.params = {"employer_id": "", "page": 0, "per_page": 100}
         self.vacancies = []
         self.validate_vacancies = []
 
-    def load_vacancies(self, employer_list, keyword=""):
+    def load_vacancies(self, emp_id_list):
         """
-        Функция для получения вакансий по заданному слову.
+        Функция для получения вакансий работодателей, которые выбраны пользователем.
+        Принимает список id работодателей.
         Приводит полученный список к нужному виду.
         """
-        self.params["text"] = keyword
-        while self.params.get("page") != 2:
+        self.params["employer_id"] = emp_id_list
+        while self.params.get("page") != 20:
             try:
                 response = requests.get(self.__url, headers=self.__headers, params=self.params)
             except Exception as e:
@@ -48,32 +49,33 @@ class HeadHunterAPI(Parser):
                 self.params["page"] += 1
 
         for vacancy in self.vacancies:
-            if vacancy["employer"]["name"] in employer_list:
-                employer_id = vacancy["employer"]["id"]
-                employer_name = vacancy["employer"]["name"]
-                vacancy_name = vacancy["name"] if vacancy["name"] else "Название не указано"
-                link = vacancy["alternate_url"] if vacancy["alternate_url"] else "Ссылка отсутствует"
-                if vacancy["salary"] is None or vacancy["salary"]["from"] is None or vacancy["salary"]["to"] is None:
-                    salary = 0
-                elif vacancy["salary"]["from"]:
-                    salary = vacancy["salary"]["from"]
-                elif vacancy["salary"]["to"]:
-                    salary = vacancy["salary"]["to"]
-                experience = vacancy["experience"]["name"] if vacancy["experience"] else "Опыт работы не указан"
-                description = vacancy["snippet"]["responsibility"] if vacancy["snippet"] else "Описание отсутствует"
-                area = vacancy["area"]["name"] if vacancy["area"] else "Город не указан"
-                self.validate_vacancies.append(
-                    {
-                        "vacancy_name": vacancy_name,
-                        "employer_id": employer_id,
-                        "employer_name": employer_name,
-                        "link": link,
-                        "description": description,
-                        "experience": experience,
-                        "salary": salary,
-                        "area": area,
-                    }
-                )
+            employer_name = vacancy["employer"]["name"]
+            vacancy_name = vacancy["name"] if vacancy["name"] else "Название не указано"
+            link = vacancy["alternate_url"] if vacancy["alternate_url"] else "Ссылка отсутствует"
+            if vacancy["salary"] is None or vacancy["salary"]["from"] is None or vacancy["salary"]["to"] is None:
+                salary = 0
+            elif vacancy["salary"]["from"]:
+                salary = vacancy["salary"]["from"]
+            elif vacancy["salary"]["to"]:
+                salary = vacancy["salary"]["to"]
+            experience = vacancy["experience"]["name"] if vacancy["experience"] else "Опыт работы не указан"
+            description = (
+                vacancy["snippet"]["responsibility"]
+                if vacancy["snippet"]["responsibility"]
+                else "Описание отсутствует"
+            )
+            area = vacancy["area"]["name"] if vacancy["area"] else "Город не указан"
+            self.validate_vacancies.append(
+                {
+                    "vacancy_name": vacancy_name,
+                    "employer_name": employer_name,
+                    "link": link,
+                    "description": description,
+                    "experience": experience,
+                    "salary": salary,
+                    "area": area,
+                }
+            )
 
     def get_vacancies(self):
         """
@@ -83,20 +85,21 @@ class HeadHunterAPI(Parser):
 
 
 if __name__ == "__main__":
-    emp_list = [
-        "Газпромбанк",
-        "СБЕР",
-        "RUTUBE",
-        "Вкусно — и точка",
-        "МТС",
-        "Купер",
-        "Яндекс",
-        "Ozon",
-        "Сима-ленд",
-        "МегаФон",
-    ]
+    id_list = [
+        "3388",  # Газпромбанк
+        "3529",  # СБЕР
+        "1440683",  # RUTUBE
+        "2624085",  # Вкусно — и точка
+        "3776",  # МТС
+        "1272486",  # Купер
+        "1740",  # Яндекс
+        "2180",  # Ozon
+        "46587",  # Сима-ленд
+        "3127",
+    ]  # МегаФон
+
     hh = HeadHunterAPI()
-    hh.load_vacancies(emp_list, "Python")
+    hh.load_vacancies(id_list)
     hh_vacancies = hh.get_vacancies()
     print(hh_vacancies)
 
